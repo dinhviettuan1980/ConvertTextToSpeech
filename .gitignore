@@ -1,0 +1,5 @@
+output/
+data/
+jobs.json
+__pycache__/
+*.pyc

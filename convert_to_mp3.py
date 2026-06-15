@@ -1,0 +1,119 @@
+import sys
+import io
+import time
+import subprocess
+from pathlib import Path
+from gtts import gTTS
+from gtts.tts import gTTSError
+from docx import Document
+
+
+def extract_text(input_path: Path) -> str:
+    suffix = input_path.suffix.lower()
+    if suffix == ".txt":
+        return input_path.read_text(encoding="utf-8")
+    elif suffix in (".docx", ".doc"):
+        doc = Document(str(input_path))
+        return "\n".join(p.text for p in doc.paragraphs if p.text.strip())
+    elif suffix == ".pdf":
+        result = subprocess.run(
+            ["pdftotext", str(input_path), "-"],
+            capture_output=True, text=True, encoding="utf-8"
+        )
+        text = result.stdout
+        if not text or not text.strip():
+            raise ValueError(f"Không đọc được nội dung từ PDF: {input_path.name}")
+        return text
+    else:
+        raise ValueError(f"Định dạng không được hỗ trợ: {suffix} (chỉ hỗ trợ .txt, .docx, .pdf)")
+
+
+def split_text(text: str, max_chars: int = 3000) -> list[str]:
+    paragraphs = [p.strip() for p in text.split('\n\n') if p.strip()]
+    chunks = []
+    current = ""
+    for para in paragraphs:
+        if not current:
+            current = para
+        elif len(current) + len(para) + 2 <= max_chars:
+            current += "\n\n" + para
+        else:
+            chunks.append(current)
+            current = para
+    if current:
+        chunks.append(current)
+    return chunks
+
+
+def chunk_to_mp3_bytes(text: str, lang: str, retries: int = 3) -> bytes:
+    for attempt in range(retries):
+        try:
+            tts = gTTS(text=text, lang=lang, slow=False)
+            buf = io.BytesIO()
+            tts.write_to_fp(buf)
+            return buf.getvalue()
+        except gTTSError as e:
+            if '429' in str(e) and attempt < retries - 1:
+                wait = 60 * (attempt + 1)
+                print(f"  [429] Rate limited, chờ {wait}s rồi thử lại...")
+                time.sleep(wait)
+            else:
+                raise
+
+
+def convert_to_mp3(input_file: str, output_dir: str = "output", lang: str = "vi"):
+    input_path = Path(input_file)
+
+    if not input_path.parent.name or input_path.parent == Path("."):
+        input_path = Path("data") / input_path
+
+    if not input_path.exists():
+        raise FileNotFoundError(f"File không tồn tại: {input_path}")
+
+    output_path = Path(output_dir)
+    output_path.mkdir(parents=True, exist_ok=True)
+
+    print(f"Đang đọc: {input_path.name}")
+    text = extract_text(input_path)
+
+    chunks = split_text(text, max_chars=3000)
+    total = len(chunks)
+    print(f"Tổng số đoạn: {total} (~{len(text)} ký tự)")
+
+    output_file = output_path / (input_path.stem + ".mp3")
+
+    with open(str(output_file), 'wb') as outf:
+        for i, chunk in enumerate(chunks, 1):
+            if (i - 1) % 20 == 0 or i == total:
+                print(f"  Đoạn {i}/{total}...")
+            data = chunk_to_mp3_bytes(chunk, lang)
+            outf.write(data)
+            time.sleep(1.0)
+
+    size_mb = output_file.stat().st_size / 1024 / 1024
+    print(f"Đã lưu: {output_file} ({size_mb:.1f} MB)")
+    return output_file
+
+
+def convert_all_in_folder(data_dir: str = "data", output_dir: str = "output", lang: str = "vi"):
+    data_path = Path(data_dir)
+    files = (list(data_path.glob("*.txt")) +
+             list(data_path.glob("*.docx")) +
+             list(data_path.glob("*.pdf")))
+
+    if not files:
+        print(f"Không tìm thấy file nào trong: {data_dir}")
+        return
+
+    print(f"Tìm thấy {len(files)} file")
+    for f in files:
+        convert_to_mp3(str(f), output_dir, lang)
+
+    print("Hoàn thành!")
+
+
+if __name__ == "__main__":
+    if len(sys.argv) > 1:
+        convert_to_mp3(sys.argv[1])
+    else:
+        convert_all_in_folder()
