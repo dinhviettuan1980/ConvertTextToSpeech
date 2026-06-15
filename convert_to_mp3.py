@@ -157,8 +157,57 @@ def convert_all_in_folder(data_dir: str = "data", output_dir: str = "output", la
     print("Hoàn thành!")
 
 
+def convert_multi_images(image_files: list, output_stem: str, output_dir: str = "output", lang: str = "vi"):
+    """Nhận OCR nhiều ảnh theo thứ tự, ghép text lại, xuất ra 1 file MP3."""
+    texts = []
+    for img_file in image_files:
+        p = Path(img_file)
+        if not p.parent.name or p.parent == Path("."):
+            p = Path("data") / p
+        if not p.exists():
+            raise FileNotFoundError(f"File không tồn tại: {p}")
+        print(f"  OCR ảnh: {p.name}")
+        result = subprocess.run(
+            ["tesseract", str(p), "stdout", "-l", "vie+eng", "--psm", "3"],
+            capture_output=True, text=True, encoding="utf-8"
+        )
+        t = result.stdout.strip()
+        if t:
+            texts.append(t)
+        else:
+            print(f"  [cảnh báo] Không nhận dạng được chữ từ: {p.name}")
+
+    if not texts:
+        raise ValueError("Không nhận dạng được chữ từ bất kỳ ảnh nào.")
+
+    combined = "\n\n".join(texts)
+    print(f"Tổng ký tự sau OCR: {len(combined)}")
+
+    output_path = Path(output_dir)
+    output_path.mkdir(parents=True, exist_ok=True)
+    chunks = split_text(combined, max_chars=3000)
+    total = len(chunks)
+    print(f"Tổng số đoạn: {total}")
+
+    output_file = output_path / f"{output_stem}.mp3"
+    with open(str(output_file), 'wb') as outf:
+        for i, chunk in enumerate(chunks, 1):
+            if (i - 1) % 20 == 0 or i == total:
+                print(f"  Đoạn {i}/{total}...")
+            data = chunk_to_mp3_bytes(chunk, lang)
+            outf.write(data)
+            time.sleep(1.0)
+
+    size_mb = output_file.stat().st_size / 1024 / 1024
+    print(f"Đã lưu: {output_file} ({size_mb:.1f} MB)")
+    return output_file
+
+
 if __name__ == "__main__":
-    if len(sys.argv) > 1:
+    # --multi <output_stem> <img1> <img2> ...
+    if len(sys.argv) > 3 and sys.argv[1] == "--multi":
+        convert_multi_images(sys.argv[3:], sys.argv[2])
+    elif len(sys.argv) > 1:
         convert_to_mp3(sys.argv[1])
     else:
         convert_all_in_folder()
