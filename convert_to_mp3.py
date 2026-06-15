@@ -16,14 +16,43 @@ def extract_text(input_path: Path) -> str:
         doc = Document(str(input_path))
         return "\n".join(p.text for p in doc.paragraphs if p.text.strip())
     elif suffix == ".pdf":
+        # Kiểm tra magic bytes — file thật phải bắt đầu bằng %PDF
+        with open(str(input_path), 'rb') as fh:
+            header = fh.read(5)
+        if not header.startswith(b'%PDF'):
+            if header.startswith(b'<!'):
+                raise ValueError(
+                    f"File '{input_path.name}' là HTML (có thể bạn tải nhầm trang đăng nhập Google Drive). "
+                    "Hãy tải lại file PDF gốc và upload lại."
+                )
+            raise ValueError(
+                f"File '{input_path.name}' không phải PDF hợp lệ (header: {header!r})"
+            )
         result = subprocess.run(
             ["pdftotext", str(input_path), "-"],
             capture_output=True, text=True, encoding="utf-8"
         )
         text = result.stdout
-        if not text or not text.strip():
-            raise ValueError(f"Không đọc được nội dung từ PDF: {input_path.name}")
-        return text
+        if text and text.strip():
+            return text
+        # PDF scanned (ảnh) → dùng OCR
+        print(f"  PDF không có text layer, thử OCR (tesseract)...")
+        ocr_out = Path(str(input_path) + "_ocr.pdf")
+        subprocess.run(
+            ["ocrmypdf", "--language", "vie+eng", "--force-ocr",
+             str(input_path), str(ocr_out)],
+            capture_output=True
+        )
+        if ocr_out.exists():
+            result2 = subprocess.run(
+                ["pdftotext", str(ocr_out), "-"],
+                capture_output=True, text=True, encoding="utf-8"
+            )
+            ocr_out.unlink(missing_ok=True)
+            text2 = result2.stdout
+            if text2 and text2.strip():
+                return text2
+        raise ValueError(f"Không đọc được nội dung từ PDF (cả OCR): {input_path.name}")
     else:
         raise ValueError(f"Định dạng không được hỗ trợ: {suffix} (chỉ hỗ trợ .txt, .docx, .pdf)")
 
