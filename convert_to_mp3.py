@@ -158,14 +158,32 @@ def convert_all_in_folder(data_dir: str = "data", output_dir: str = "output", la
 
 
 def convert_multi_images(image_files: list, output_stem: str, output_dir: str = "output", lang: str = "vi"):
-    """Nhận OCR nhiều ảnh theo thứ tự, ghép text lại, xuất ra 1 file MP3."""
-    texts = []
+    """OCR nhiều ảnh theo thứ tự, ghép text → 1 MP3, đồng thời tạo PDF tổng hợp."""
+    from PIL import Image as PILImage
+
+    resolved = []
     for img_file in image_files:
         p = Path(img_file)
         if not p.parent.name or p.parent == Path("."):
             p = Path("data") / p
         if not p.exists():
             raise FileNotFoundError(f"File không tồn tại: {p}")
+        resolved.append(p)
+
+    # 1. Tạo PDF ghép ảnh (giữ đúng thứ tự)
+    pdf_dir = Path("pdfs")
+    pdf_dir.mkdir(exist_ok=True)
+    pdf_path = pdf_dir / f"{output_stem}.pdf"
+    print(f"  Ghép {len(resolved)} ảnh → PDF...")
+    pil_imgs = [PILImage.open(str(p)).convert("RGB") for p in resolved]
+    pil_imgs[0].save(
+        str(pdf_path), save_all=True, append_images=pil_imgs[1:], resolution=150
+    )
+    print(f"  PDF: {pdf_path}")
+
+    # 2. OCR từng ảnh (đúng thứ tự)
+    texts = []
+    for p in resolved:
         print(f"  OCR ảnh: {p.name}")
         result = subprocess.run(
             ["tesseract", str(p), "stdout", "-l", "vie+eng", "--psm", "3"],
@@ -183,6 +201,7 @@ def convert_multi_images(image_files: list, output_stem: str, output_dir: str = 
     combined = "\n\n".join(texts)
     print(f"Tổng ký tự sau OCR: {len(combined)}")
 
+    # 3. Chuyển text → MP3
     output_path = Path(output_dir)
     output_path.mkdir(parents=True, exist_ok=True)
     chunks = split_text(combined, max_chars=3000)
