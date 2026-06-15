@@ -8,10 +8,26 @@ from gtts.tts import gTTSError
 from docx import Document
 
 
+IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".webp", ".bmp", ".tiff", ".tif"}
+
+
 def extract_text(input_path: Path) -> str:
     suffix = input_path.suffix.lower()
     if suffix == ".txt":
         return input_path.read_text(encoding="utf-8")
+    elif suffix in IMAGE_EXTS:
+        print(f"  Nhận dạng chữ từ ảnh (tesseract)...")
+        result = subprocess.run(
+            ["tesseract", str(input_path), "stdout", "-l", "vie+eng", "--psm", "3"],
+            capture_output=True, text=True, encoding="utf-8"
+        )
+        text = result.stdout
+        if not text or not text.strip():
+            raise ValueError(
+                f"Không nhận dạng được chữ từ ảnh '{input_path.name}'. "
+                "Hãy chắc chắn ảnh rõ nét và có chữ."
+            )
+        return text
     elif suffix in (".docx", ".doc"):
         doc = Document(str(input_path))
         return "\n".join(p.text for p in doc.paragraphs if p.text.strip())
