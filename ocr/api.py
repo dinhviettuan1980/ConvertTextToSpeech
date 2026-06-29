@@ -87,6 +87,32 @@ async def obituary_endpoint(file: UploadFile = File(..., description="Ảnh cáo
         raise HTTPException(status_code=500, detail=f"Obituary lỗi: {e}")
 
 
+@app.post("/prescription")
+async def prescription_endpoint(file: UploadFile = File(..., description="Ảnh đơn thuốc")):
+    """Trích đơn thuốc -> { meds:[{name,dose,quantity,unit,category}], patient_name, diagnosis, ... }."""
+    data = await file.read()
+    if not data:
+        raise HTTPException(status_code=400, detail="File rỗng")
+    try:
+        from .medical import extract_prescription
+        return extract_prescription(data)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Prescription lỗi: {e}")
+
+
+@app.post("/labtest")
+async def labtest_endpoint(file: UploadFile = File(..., description="Ảnh phiếu xét nghiệm")):
+    """Trích chỉ số xét nghiệm -> { metrics:[{label,value,unit,reference,type}] }."""
+    data = await file.read()
+    if not data:
+        raise HTTPException(status_code=400, detail="File rỗng")
+    try:
+        from .medical import extract_labtest
+        return extract_labtest(data)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Labtest lỗi: {e}")
+
+
 @app.post("/tts")
 def tts_endpoint(text: str = Body(..., embed=True), lang: str = Body("vi", embed=True)):
     """Văn bản -> MP3 (gTTS), stream thẳng audio/mpeg để FE phát/tải."""
