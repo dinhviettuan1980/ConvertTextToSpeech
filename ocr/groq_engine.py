@@ -40,7 +40,7 @@ class GroqEngine(BaseOCREngine):
 
     def __init__(self):
         self.key = os.getenv("GROQ_API_KEY", "")
-        self.model = os.getenv("GROQ_VISION_MODEL", "meta-llama/llama-4-maverick-17b-128e-instruct")
+        self.model = os.getenv("GROQ_VISION_MODEL", "meta-llama/llama-4-scout-17b-16e-instruct")
         self.confidence = float(os.getenv("GROQ_OCR_CONFIDENCE", "0.9"))
 
     def ocr(self, image_bytes: bytes) -> List[OCRResult]:
@@ -62,10 +62,17 @@ class GroqEngine(BaseOCREngine):
                 ],
             }],
         }
+        # QUAN TRỌNG: Groq đứng sau Cloudflare, chặn User-Agent mặc định của urllib
+        # ("Python-urllib/x.y") -> trả "error code: 1010" (HTTP 403). Đặt UA giống curl để qua.
+        ua = os.getenv("OCR_HTTP_UA", "curl/8.5.0")
         req = urllib.request.Request(
             GROQ_URL,
             data=json.dumps(payload).encode("utf-8"),
-            headers={"Authorization": f"Bearer {self.key}", "Content-Type": "application/json"},
+            headers={
+                "Authorization": f"Bearer {self.key}",
+                "Content-Type": "application/json",
+                "User-Agent": ua,
+            },
             method="POST",
         )
         with urllib.request.urlopen(req, timeout=120) as resp:
