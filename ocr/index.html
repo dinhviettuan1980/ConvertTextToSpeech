@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>OCR trích số trong ảnh</title>
+<style>
+  :root { --bg:#0f172a; --card:#1e293b; --txt:#e2e8f0; --mut:#94a3b8; --acc:#38bdf8; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif; background:var(--bg); color:var(--txt); }
+  header { padding:20px 24px; border-bottom:1px solid #334155; }
+  h1 { margin:0; font-size:20px; }
+  .sub { color:var(--mut); font-size:13px; margin-top:4px; }
+  main { display:flex; gap:20px; padding:20px 24px; flex-wrap:wrap; }
+  .panel { background:var(--card); border:1px solid #334155; border-radius:12px; padding:16px; }
+  .left { flex:1 1 480px; min-width:320px; }
+  .right { flex:1 1 360px; min-width:300px; }
+  #drop { border:2px dashed #475569; border-radius:12px; padding:28px; text-align:center; color:var(--mut); cursor:pointer; transition:.15s; }
+  #drop:hover, #drop.drag { border-color:var(--acc); color:var(--acc); }
+  #wrap { position:relative; margin-top:14px; display:none; }
+  #img { max-width:100%; border-radius:8px; display:block; }
+  #ovl { position:absolute; left:0; top:0; pointer-events:none; }
+  button { background:var(--acc); color:#06283d; border:0; border-radius:8px; padding:10px 16px; font-weight:600; cursor:pointer; }
+  button:disabled { opacity:.5; cursor:default; }
+  .stat { color:var(--mut); font-size:13px; margin:10px 0; }
+  table { width:100%; border-collapse:collapse; font-size:14px; }
+  th,td { text-align:left; padding:7px 8px; border-bottom:1px solid #334155; }
+  th { color:var(--mut); font-weight:500; }
+  .tag { font-size:11px; padding:2px 8px; border-radius:999px; color:#06283d; font-weight:700; }
+  .v { font-variant-numeric:tabular-nums; font-weight:600; }
+  code { color:var(--mut); }
+</style>
+</head>
+<body>
+<header>
+  <h1>🔢 OCR trích tất cả con số trong ảnh</h1>
+  <div class="sub">Upload ảnh → PaddleOCR đọc → trả về mọi chuỗi số kèm loại, bbox, độ tin cậy.</div>
+</header>
+<main>
+  <div class="panel left">
+    <div id="drop">📁 Kéo-thả ảnh vào đây hoặc bấm để chọn<input id="file" type="file" accept="image/*" hidden></div>
+    <div style="margin-top:12px"><button id="go" disabled>Nhận diện</button></div>
+    <div id="wrap"><img id="img" alt=""><canvas id="ovl"></canvas></div>
+  </div>
+  <div class="panel right">
+    <div class="stat" id="stat">Chưa có kết quả.</div>
+    <table><thead><tr><th>Giá trị</th><th>Loại</th><th>Độ tin</th></tr></thead><tbody id="rows"></tbody></table>
+  </div>
+</main>
+<script>
+const COLORS = { number:'#38bdf8', date:'#f472b6', time:'#fbbf24', address_number:'#34d399', phone:'#a78bfa', age:'#fb7185', unknown:'#94a3b8' };
+const $ = s => document.querySelector(s);
+const fileInput = $('#file'), drop = $('#drop'), go = $('#go'), img = $('#img'), ovl = $('#ovl'), wrap = $('#wrap');
+let selected = null, lastNumbers = null;
+
+drop.onclick = () => fileInput.click();
+['dragover','dragenter'].forEach(e => drop.addEventListener(e, ev => { ev.preventDefault(); drop.classList.add('drag'); }));
+['dragleave','drop'].forEach(e => drop.addEventListener(e, ev => { ev.preventDefault(); drop.classList.remove('drag'); }));
+drop.addEventListener('drop', ev => { if (ev.dataTransfer.files[0]) pick(ev.dataTransfer.files[0]); });
+fileInput.onchange = () => fileInput.files[0] && pick(fileInput.files[0]);
+
+function pick(f) {
+  selected = f; go.disabled = false;
+  img.onload = () => { wrap.style.display='block'; drawBoxes([]); };
+  img.src = URL.createObjectURL(f);
+  $('#rows').innerHTML=''; $('#stat').textContent='Sẵn sàng nhận diện.';
+}
+
+function drawBoxes(numbers) {
+  ovl.width = img.clientWidth; ovl.height = img.clientHeight;
+  const sx = img.clientWidth / img.naturalWidth, sy = img.clientHeight / img.naturalHeight;
+  const ctx = ovl.getContext('2d'); ctx.clearRect(0,0,ovl.width,ovl.height); ctx.lineWidth=2;
+  for (const n of numbers) {
+    if (!n.bbox || n.bbox.length<4) continue;
+    const [x0,y0,x1,y1] = n.bbox;
+    ctx.strokeStyle = COLORS[n.type] || '#94a3b8';
+    ctx.strokeRect(x0*sx, y0*sy, (x1-x0)*sx, (y1-y0)*sy);
+  }
+}
+
+go.onclick = async () => {
+  if (!selected) return;
+  go.disabled = true; $('#stat').textContent = 'Đang OCR... (lần đầu có thể chậm do nạp model)';
+  try {
+    const fd = new FormData(); fd.append('file', selected);
+    const res = await fetch('/ocr', { method:'POST', body: fd });
+    if (!res.ok) throw new Error('HTTP '+res.status);
+    const data = await res.json();
+    lastNumbers = data.numbers || [];
+    render(lastNumbers);
+  } catch (e) { $('#stat').textContent = 'Lỗi: '+e.message; }
+  go.disabled = false;
+};
+
+function render(numbers) {
+  drawBoxes(numbers);
+  const byType = {};
+  numbers.forEach(n => byType[n.type] = (byType[n.type]||0)+1);
+  $('#stat').innerHTML = `Tìm thấy <b>${numbers.length}</b> số — ` +
+    Object.entries(byType).map(([t,c]) => `<span class="tag" style="background:${COLORS[t]||'#94a3b8'}">${t}: ${c}</span>`).join(' ');
+  $('#rows').innerHTML = numbers.map(n =>
+    `<tr><td class="v">${n.value}</td>`+
+    `<td><span class="tag" style="background:${COLORS[n.type]||'#94a3b8'}">${n.type}</span></td>`+
+    `<td><code>${(n.confidence*100).toFixed(0)}%</code></td></tr>`).join('');
+}
+</script>
+</body>
+</html>
