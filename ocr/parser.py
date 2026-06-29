@@ -28,19 +28,33 @@ _CTX_LEFT = 14
 _CTX_RIGHT = 10
 
 
+_NON_DIGIT = re.compile(r"\D")
+
+
 def extract_numbers(ocr_results: List[OCRResult]) -> List[NumberItem]:
-    """Từ danh sách vùng OCR -> danh sách NumberItem đã phân loại, theo thứ tự xuất hiện."""
+    """Từ danh sách vùng OCR -> danh sách NumberItem (theo thứ tự xuất hiện).
+
+    Yêu cầu: `value` CHỈ GIỮ CHỮ SỐ (bỏ mọi ký tự khác: : / . - chữ cái...),
+    và LOẠI TRÙNG (mỗi giá trị số chỉ xuất hiện 1 lần). `type` vẫn được phân loại
+    dựa trên chuỗi GỐC (để nhận đúng date/time/phone) trước khi rút gọn.
+    """
     items: List[NumberItem] = []
+    seen = set()
     for r in ocr_results:
         text = r.text or ""
         for m in NUMBER_CHUNK.finditer(text):
             chunk = m.group(0)
             window = text[max(0, m.start() - _CTX_LEFT): m.end() + _CTX_RIGHT]
+            typ = classify(chunk, window)        # phân loại trên chuỗi gốc
+            digits = _NON_DIGIT.sub("", chunk)   # chỉ giữ chữ số
+            if not digits or digits in seen:     # rỗng hoặc trùng -> bỏ
+                continue
+            seen.add(digits)
             items.append(NumberItem(
-                value=chunk,
-                type=classify(chunk, window),   # phân loại theo lân cận
+                value=digits,
+                type=typ,
                 bbox=r.bbox,
                 confidence=round(float(r.confidence), 4),
-                context=text,                   # vẫn trả full dòng để debug
+                context=text,                    # vẫn trả full dòng để debug
             ))
     return items
