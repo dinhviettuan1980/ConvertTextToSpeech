@@ -20,7 +20,9 @@ from pathlib import Path
 HF_DIR = Path(__file__).resolve().parent      # ocr/hf-space
 OCR_DIR = HF_DIR.parent                        # ocr/
 PKG_FILES = ["__init__.py", "base.py", "paddle_engine.py", "groq_engine.py",
-             "parser.py", "extractor.py", "api.py", "index.html"]
+             "parser.py", "extractor.py", "api.py", "index.html",
+             "obituary.py", "address_parser.py", "map_service.py",
+             "speech_generator.py", "tts_service.py"]
 
 
 def main():

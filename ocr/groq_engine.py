@@ -35,49 +35,53 @@ _PROMPT = (
 )
 
 
+def _groq_model():
+    return os.getenv("GROQ_VISION_MODEL", "meta-llama/llama-4-scout-17b-16e-instruct")
+
+
+def vision_complete(image_bytes: bytes, prompt: str, max_tokens: int = 2048,
+                    temperature: float = 0, model: str = None) -> str:
+    """Gọi Groq vision với 1 ảnh + prompt, trả về nội dung text. Dùng chung cho OCR và
+    trích cáo phó. Bao gồm fix User-Agent (Cloudflare chặn UA mặc định của urllib)."""
+    key = os.getenv("GROQ_API_KEY", "")
+    if not key:
+        raise RuntimeError("Thiếu GROQ_API_KEY")
+    mime = "image/png" if image_bytes[:8].startswith(b"\x89PNG") else "image/jpeg"
+    data_uri = f"data:{mime};base64,{base64.b64encode(image_bytes).decode()}"
+    payload = {
+        "model": model or _groq_model(),
+        "temperature": temperature,
+        "max_tokens": max_tokens,
+        "messages": [{
+            "role": "user",
+            "content": [
+                {"type": "text", "text": prompt},
+                {"type": "image_url", "image_url": {"url": data_uri}},
+            ],
+        }],
+    }
+    req = urllib.request.Request(
+        GROQ_URL,
+        data=json.dumps(payload).encode("utf-8"),
+        headers={
+            "Authorization": f"Bearer {key}",
+            "Content-Type": "application/json",
+            "User-Agent": os.getenv("OCR_HTTP_UA", "curl/8.5.0"),  # qua Cloudflare 1010
+        },
+        method="POST",
+    )
+    with urllib.request.urlopen(req, timeout=120) as resp:
+        body = json.loads(resp.read().decode("utf-8"))
+    return (body.get("choices") or [{}])[0].get("message", {}).get("content", "") or ""
+
+
 class GroqEngine(BaseOCREngine):
     name = "groq"
 
     def __init__(self):
-        self.key = os.getenv("GROQ_API_KEY", "")
-        self.model = os.getenv("GROQ_VISION_MODEL", "meta-llama/llama-4-scout-17b-16e-instruct")
         self.confidence = float(os.getenv("GROQ_OCR_CONFIDENCE", "0.9"))
 
     def ocr(self, image_bytes: bytes) -> List[OCRResult]:
-        if not self.key:
-            raise RuntimeError("Thiếu GROQ_API_KEY")
-
-        mime = "image/png" if image_bytes[:8].startswith(b"\x89PNG") else "image/jpeg"
-        data_uri = f"data:{mime};base64,{base64.b64encode(image_bytes).decode()}"
-
-        payload = {
-            "model": self.model,
-            "temperature": 0,
-            "max_tokens": 2048,
-            "messages": [{
-                "role": "user",
-                "content": [
-                    {"type": "text", "text": _PROMPT},
-                    {"type": "image_url", "image_url": {"url": data_uri}},
-                ],
-            }],
-        }
-        # QUAN TRỌNG: Groq đứng sau Cloudflare, chặn User-Agent mặc định của urllib
-        # ("Python-urllib/x.y") -> trả "error code: 1010" (HTTP 403). Đặt UA giống curl để qua.
-        ua = os.getenv("OCR_HTTP_UA", "curl/8.5.0")
-        req = urllib.request.Request(
-            GROQ_URL,
-            data=json.dumps(payload).encode("utf-8"),
-            headers={
-                "Authorization": f"Bearer {self.key}",
-                "Content-Type": "application/json",
-                "User-Agent": ua,
-            },
-            method="POST",
-        )
-        with urllib.request.urlopen(req, timeout=120) as resp:
-            body = json.loads(resp.read().decode("utf-8"))
-
-        text = (body.get("choices") or [{}])[0].get("message", {}).get("content", "") or ""
+        text = vision_complete(image_bytes, _PROMPT, max_tokens=2048)
         lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
         return [OCRResult(text=ln, confidence=self.confidence, bbox=[]) for ln in lines]

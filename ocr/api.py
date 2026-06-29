@@ -14,9 +14,9 @@ from __future__ import annotations
 import os
 from dataclasses import asdict
 
-from fastapi import FastAPI, File, UploadFile, HTTPException
+from fastapi import FastAPI, File, UploadFile, HTTPException, Body
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, Response
 
 from .paddle_engine import create_engine
 from .parser import extract_numbers
@@ -72,3 +72,28 @@ async def ocr_endpoint(file: UploadFile = File(..., description="Ảnh cần OCR
     numbers = extract_numbers(ocr_results)
     # Trả JSON đúng spec: { numbers: [ {value,type,bbox,confidence,context}, ... ] }
     return {"numbers": [asdict(n) for n in numbers]}
+
+
+@app.post("/obituary")
+async def obituary_endpoint(file: UploadFile = File(..., description="Ảnh cáo phó")):
+    """Trích thông tin cáo phó + số dự đoán (cần OCR_ENGINE=groq để dùng vision)."""
+    data = await file.read()
+    if not data:
+        raise HTTPException(status_code=400, detail="File rỗng")
+    try:
+        from .obituary import extract_obituary
+        return extract_obituary(data)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Obituary lỗi: {e}")
+
+
+@app.post("/tts")
+def tts_endpoint(text: str = Body(..., embed=True), lang: str = Body("vi", embed=True)):
+    """Văn bản -> MP3 (gTTS), stream thẳng audio/mpeg để FE phát/tải."""
+    try:
+        from .tts_service import synthesize
+        mp3 = synthesize(text, lang)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"TTS lỗi: {e}")
+    return Response(content=mp3, media_type="audio/mpeg",
+                    headers={"Content-Disposition": 'inline; filename="cao-pho.mp3"'})
