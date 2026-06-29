@@ -19,8 +19,8 @@ from pathlib import Path
 
 HF_DIR = Path(__file__).resolve().parent      # ocr/hf-space
 OCR_DIR = HF_DIR.parent                        # ocr/
-PKG_FILES = ["__init__.py", "base.py", "paddle_engine.py", "parser.py",
-             "extractor.py", "api.py", "index.html"]
+PKG_FILES = ["__init__.py", "base.py", "paddle_engine.py", "groq_engine.py",
+             "parser.py", "extractor.py", "api.py", "index.html"]
 
 
 def main():
@@ -38,12 +38,27 @@ def main():
     (stage / "ocr").mkdir()
     shutil.copy(HF_DIR / "Dockerfile", stage / "Dockerfile")
     shutil.copy(HF_DIR / "README.md", stage / "README.md")
-    shutil.copy(OCR_DIR / "requirements.txt", stage / "requirements.txt")
+    # Dùng requirements NHẸ của hf-space (biến thể groq), không phải bản paddle đầy đủ.
+    shutil.copy(HF_DIR / "requirements.txt", stage / "requirements.txt")
     for f in PKG_FILES:
         shutil.copy(OCR_DIR / f, stage / "ocr" / f)
 
     print(f"→ tạo Space {repo_id} (docker)...")
     api.create_repo(repo_id=repo_id, repo_type="space", space_sdk="docker", exist_ok=True)
+
+    # Cấu hình engine + key. OCR_ENGINE mặc định groq; GROQ_API_KEY lấy từ ENV (đặt làm secret).
+    engine = os.getenv("OCR_ENGINE", "groq")
+    api.add_space_variable(repo_id=repo_id, key="OCR_ENGINE", value=engine)
+    gk = os.getenv("GROQ_API_KEY")
+    if gk:
+        api.add_space_secret(repo_id=repo_id, key="GROQ_API_KEY", value=gk)
+        print("→ đã set secret GROQ_API_KEY")
+    else:
+        print("⚠ Chưa có GROQ_API_KEY trong ENV — nhớ set thủ công ở Space Settings.")
+    gm = os.getenv("GROQ_VISION_MODEL")
+    if gm:
+        api.add_space_variable(repo_id=repo_id, key="GROQ_VISION_MODEL", value=gm)
+
     print("→ upload...")
     api.upload_folder(folder_path=str(stage), repo_id=repo_id, repo_type="space",
                       commit_message="ocr-numbers deploy")

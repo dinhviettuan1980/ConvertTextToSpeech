@@ -81,6 +81,9 @@ def create_engine(name: str = None) -> BaseOCREngine:
     name = (name or os.getenv("OCR_ENGINE", "paddle")).lower()
     if name == "paddle":
         return PaddleEngine()
+    if name == "groq":
+        from .groq_engine import GroqEngine  # vision LLM, đọc chữ viết tay
+        return GroqEngine()
     # if name == "surya":  from .surya_engine import SuryaEngine; return SuryaEngine()
     # if name == "mistral": from .mistral_engine import MistralEngine; return MistralEngine()
     raise ValueError(f"OCR engine chưa hỗ trợ: {name}")

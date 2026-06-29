@@ -1,0 +1,4 @@
+# HF Space biến thể GROQ vision — nhẹ (GroqEngine chỉ dùng stdlib urllib).
+fastapi==0.110.0
+uvicorn[standard]==0.29.0
+python-multipart==0.0.9
