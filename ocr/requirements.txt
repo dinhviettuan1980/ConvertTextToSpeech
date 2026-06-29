@@ -1,0 +1,9 @@
+# OCR number-extractor service (CPU mode)
+fastapi==0.110.0
+uvicorn[standard]==0.29.0
+python-multipart==0.0.9
+opencv-python-headless==4.9.0.80
+numpy==1.26.4
+# PaddleOCR (CPU). paddlepaddle là wheel CPU; cần Python 3.8-3.12.
+paddleocr==2.7.3
+paddlepaddle==2.6.1
