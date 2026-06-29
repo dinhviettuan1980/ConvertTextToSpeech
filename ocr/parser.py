@@ -29,14 +29,18 @@ _CTX_RIGHT = 10
 
 
 _NON_DIGIT = re.compile(r"\D")
+_SPLIT = re.compile(r"[:/]")   # ƯU TIÊN tách ':' và '/' (giờ phút, ngày/tháng/năm)
 
 
 def extract_numbers(ocr_results: List[OCRResult]) -> List[NumberItem]:
     """Từ danh sách vùng OCR -> danh sách NumberItem (theo thứ tự xuất hiện).
 
-    Yêu cầu: `value` CHỈ GIỮ CHỮ SỐ (bỏ mọi ký tự khác: : / . - chữ cái...),
-    và LOẠI TRÙNG (mỗi giá trị số chỉ xuất hiện 1 lần). `type` vẫn được phân loại
-    dựa trên chuỗi GỐC (để nhận đúng date/time/phone) trước khi rút gọn.
+    Quy tắc xử lý mỗi cụm số:
+      1) TÁCH trên ':' và '/'  ->  '06:22' -> ['06','22'];  '27/06/2026' -> ['27','06','2026'].
+         (KHÔNG tách '.' để '19.5.2' do dòng kẻ chấm vẫn gộp về '1952'.)
+      2) LỌC: mỗi phần chỉ giữ CHỮ SỐ (bỏ . - chữ cái...).
+      3) LOẠI TRÙNG: mỗi giá trị số chỉ xuất hiện 1 lần.
+    `type` được phân loại theo phần đã rút gọn + ngữ cảnh lân cận.
     """
     items: List[NumberItem] = []
     seen = set()
@@ -45,16 +49,16 @@ def extract_numbers(ocr_results: List[OCRResult]) -> List[NumberItem]:
         for m in NUMBER_CHUNK.finditer(text):
             chunk = m.group(0)
             window = text[max(0, m.start() - _CTX_LEFT): m.end() + _CTX_RIGHT]
-            typ = classify(chunk, window)        # phân loại trên chuỗi gốc
-            digits = _NON_DIGIT.sub("", chunk)   # chỉ giữ chữ số
-            if not digits or digits in seen:     # rỗng hoặc trùng -> bỏ
-                continue
-            seen.add(digits)
-            items.append(NumberItem(
-                value=digits,
-                type=typ,
-                bbox=r.bbox,
-                confidence=round(float(r.confidence), 4),
-                context=text,                    # vẫn trả full dòng để debug
-            ))
+            for part in _SPLIT.split(chunk):        # (1) tách : /
+                digits = _NON_DIGIT.sub("", part)   # (2) chỉ giữ chữ số
+                if not digits or digits in seen:    # (3) rỗng hoặc trùng -> bỏ
+                    continue
+                seen.add(digits)
+                items.append(NumberItem(
+                    value=digits,
+                    type=classify(digits, window),
+                    bbox=r.bbox,
+                    confidence=round(float(r.confidence), 4),
+                    context=text,
+                ))
     return items
