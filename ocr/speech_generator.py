@@ -31,6 +31,9 @@ def build_speech(f: dict) -> str:
     if age:
         s += f", hưởng thọ {age} tuổi"
     p.append(s + ".")
+    home = (f.get("home_address") or "").strip()
+    if home:
+        p.append(f"Chỗ ở: {home}.")
     vd = (f.get("visitation_date") or "").strip()
     if vd or f.get("visitation_time"):
         p.append(f"Lễ viếng được tổ chức {('lúc ' + f['visitation_time'] + ' ') if f.get('visitation_time') else ''}ngày {vd}.".strip())

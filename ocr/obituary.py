@@ -29,7 +29,7 @@ from . import address_parser, map_service, speech_generator
 FIELDS = [
     "person_name", "birth_year", "death_date", "death_time", "age",
     "visitation_date", "visitation_time", "funeral_date", "funeral_time",
-    "address", "burial_address",
+    "home_address", "address", "burial_address",
 ]
 
 _PROMPT = (
@@ -39,12 +39,15 @@ _PROMPT = (
     "death_date (ngày mất dạng dd/mm/yyyy), death_time (giờ mất dạng HH:MM), "
     "age (hưởng thọ, chỉ số), "
     "visitation_date, visitation_time (lễ viếng), funeral_date, funeral_time (lễ truy điệu/đưa tang), "
+    "home_address (ĐỊA CHỈ nhà/nơi ở của người mất hoặc gia đình — thường sau chữ 'Chỗ ở:' hoặc "
+    "'Trú quán:', KHÁC với nơi tổ chức tang lễ), "
     "address (ĐỊA CHỈ TỔ CHỨC LỄ VIẾNG/LỄ TRUY ĐIỆU — thường sau chữ 'Tại:', vd nhà tang lễ: "
     "ghép số nhà, ngách, ngõ, đường, phường/xã, quận/huyện, thành phố), "
     "burial_address (ĐỊA ĐIỂM AN TÁNG/HỎA TÁNG — thường sau chữ 'Táng tại:' hoặc 'An táng tại:', "
     "THƯỜNG LÀ NƠI KHÁC với address ở trên, vd nghĩa trang/thôn/xã/tỉnh khác — để riêng, KHÔNG gộp "
     "chung với address), "
-    "(cả address và burial_address: chỉ ghép phần ĐỌC ĐƯỢC, KHÔNG suy diễn, thiếu thì để rỗng), "
+    "(cả 3 địa chỉ home_address/address/burial_address LÀ 3 NƠI KHÁC NHAU, chỉ ghép phần ĐỌC ĐƯỢC, "
+    "KHÔNG suy diễn, KHÔNG lấy nhầm nơi này gán cho nơi kia, thiếu thì để rỗng), "
     "full_text (TOÀN BỘ chữ đọc được, mỗi dòng một dòng, giữ nguyên số), "
     "speech_text (một đoạn văn TỰ NHIÊN trang trọng để đọc to như lời cáo phó; "
     "VIẾT SỐ THÀNH CHỮ, ví dụ 1952 -> 'một nghìn chín trăm năm mươi hai'; không đọc máy móc từng dòng). "
@@ -101,6 +104,7 @@ def extract_obituary(image_bytes: bytes) -> dict:
 
     out = {k: str(data.get(k) or "").strip() for k in FIELDS}
     out["low_confidence"] = low_confidence
+    out["home_address"] = address_parser.clean(out["home_address"])
     out["address"] = address_parser.clean(out["address"])
     out["map_url"] = map_service.maps_url(out["address"])
     out["burial_address"] = address_parser.clean(out["burial_address"])
