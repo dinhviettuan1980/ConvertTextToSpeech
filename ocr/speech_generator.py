@@ -40,5 +40,8 @@ def build_speech(f: dict) -> str:
     addr = (f.get("address") or "").strip()
     if addr:
         p.append(f"Địa chỉ: {addr}.")
+    burial = (f.get("burial_address") or "").strip()
+    if burial:
+        p.append(f"An táng tại: {burial}.")
     p.append("Gia đình kính báo.")
     return "\n".join(p)
