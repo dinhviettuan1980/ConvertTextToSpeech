@@ -7,6 +7,13 @@ Trích thông tin CÁO PHÓ từ ảnh bằng Groq vision -> JSON chuẩn (spec)
   - speech_text rỗng -> speech_generator (fallback)
 
 KHÔNG bịa: trường thiếu để chuỗi rỗng.
+
+Chống ảo giác (model đôi khi bịa nguyên 1 bộ dữ liệu KHÁC hoàn toàn, tự nhất quán —
+so full_text với chính data trong CÙNG 1 lần gọi không phát hiện được vì cả 2 đều do
+model bịa ra cùng lúc): gọi Groq 2 LẦN ĐỘC LẬP trên cùng ảnh, so sánh birth_year +
+person_name. Khớp nhau -> tin dùng. Lệch nhau -> gọi lần 3, lấy kết quả đa số (2/3);
+nếu cả 3 lần đều khác nhau thì trả kết quả lần cuối kèm cờ `low_confidence: true`
+để FE có thể cảnh báo thay vì hiển thị y như chắc chắn đúng.
 """
 from __future__ import annotations
 
@@ -57,11 +64,38 @@ def _parse_json(s: str) -> dict:
     return {}
 
 
-def extract_obituary(image_bytes: bytes) -> dict:
+def _call_once(image_bytes: bytes) -> dict:
     raw = vision_complete(image_bytes, _PROMPT, max_tokens=2048)
-    data = _parse_json(raw)
+    return _parse_json(raw)
+
+
+def _signature(data: dict) -> tuple:
+    """Fingerprint thô để so 2 lần gọi có đang mô tả CÙNG 1 cáo phó không."""
+    name = re.sub(r"\s+", " ", str(data.get("person_name") or "").strip().lower())
+    return (str(data.get("birth_year") or "").strip(), name[:24])
+
+
+def _vote(candidates: list[dict]) -> tuple[dict, bool]:
+    """Trả (data được chọn, low_confidence). 2/3 khớp -> chọn cặp khớp. Cả 3 khác nhau
+    -> chọn lần cuối, đánh dấu low_confidence."""
+    sigs = [_signature(c) for c in candidates]
+    for i in range(len(candidates)):
+        if sigs.count(sigs[i]) >= 2:
+            return candidates[i], False
+    return candidates[-1], True
+
+
+def extract_obituary(image_bytes: bytes) -> dict:
+    first = _call_once(image_bytes)
+    second = _call_once(image_bytes)
+    if _signature(first) == _signature(second):
+        data, low_confidence = first, False
+    else:
+        third = _call_once(image_bytes)
+        data, low_confidence = _vote([first, second, third])
 
     out = {k: str(data.get(k) or "").strip() for k in FIELDS}
+    out["low_confidence"] = low_confidence
     out["address"] = address_parser.clean(out["address"])
     out["map_url"] = map_service.maps_url(out["address"])
 

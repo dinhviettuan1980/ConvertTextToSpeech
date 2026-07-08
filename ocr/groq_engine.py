@@ -9,10 +9,17 @@ Lưu ý:
     "lấy tất cả con số" vẫn đạt; bbox là phụ.
   - confidence không phải độ tin OCR thật (LLM không cung cấp) -> đặt hằng số (mặc định 0.9).
   - Prompt yêu cầu CHÉP ĐÚNG, KHÔNG đoán — hạn chế bịa số.
+  - Groq đã khai tử meta-llama/llama-4-maverick-17b-128e-instruct (09/03/2026, xem
+    console.groq.com/docs/deprecations). meta-llama/llama-4-scout-17b-16e-instruct hiện là
+    MODEL VISION DUY NHẤT Groq còn phục vụ (đã tự kiểm tra GET /v1/models — openai/gpt-oss-*
+    chỉ là model suy luận text-only, KHÔNG nhận ảnh). Vì chỉ có 1 lựa chọn và model này dễ
+    ảo giác hơn Maverick với chữ viết tay phức tạp, việc chống bịa dữ liệu phải làm ở tầng gọi
+    (xem obituary.py: gọi 2-3 lần độc lập + bỏ phiếu), KHÔNG thể giải quyết bằng đổi model.
 
 ENV:
   GROQ_API_KEY        (bắt buộc)
-  GROQ_VISION_MODEL   (mặc định meta-llama/llama-4-maverick-17b-128e-instruct)
+  GROQ_VISION_MODEL   (mặc định meta-llama/llama-4-scout-17b-16e-instruct — model vision
+                       duy nhất Groq còn hỗ trợ, xem ghi chú deprecation ở trên)
   GROQ_OCR_CONFIDENCE (mặc định 0.9)
 """
 from __future__ import annotations
