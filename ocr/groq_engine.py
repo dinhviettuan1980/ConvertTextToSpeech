@@ -82,6 +82,12 @@ def vision_complete(image_bytes: bytes, prompt: str, max_tokens: int = 2048,
     return (body.get("choices") or [{}])[0].get("message", {}).get("content", "") or ""
 
 
+def ocr_full_text(image_bytes: bytes, max_tokens: int = 4096) -> str:
+    """Trả nguyên văn bản đọc được từ ảnh (không tách OCRResult) — dùng cho nơi cần đọc to
+    toàn bộ nội dung (vd convert_to_mp3.py), khác GroqEngine.ocr() vốn tách theo dòng."""
+    return vision_complete(image_bytes, _PROMPT, max_tokens=max_tokens).strip()
+
+
 class GroqEngine(BaseOCREngine):
     name = "groq"
 

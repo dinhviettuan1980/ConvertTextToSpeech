@@ -7,8 +7,29 @@ from gtts import gTTS
 from gtts.tts import gTTSError
 from docx import Document
 
+from ocr.groq_engine import ocr_full_text
+
 
 IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".webp", ".bmp", ".tiff", ".tif"}
+
+
+def ocr_image(input_path: Path) -> str:
+    """Groq vision trước (đồng nhất với /obituary, /ocr...); lỗi/thiếu GROQ_API_KEY thì
+    fallback về tesseract (chất lượng kém hơn với chữ viết tay nhưng không phụ thuộc mạng)."""
+    try:
+        print(f"  Nhận dạng chữ từ ảnh (Groq vision)...")
+        text = ocr_full_text(input_path.read_bytes())
+        if text.strip():
+            return text
+        print(f"  [Groq trả rỗng] fallback tesseract...")
+    except Exception as e:
+        print(f"  [Groq lỗi: {e}] fallback tesseract...")
+
+    result = subprocess.run(
+        ["tesseract", str(input_path), "stdout", "-l", "vie+eng", "--psm", "3"],
+        capture_output=True, text=True, encoding="utf-8"
+    )
+    return result.stdout
 
 
 def extract_text(input_path: Path) -> str:
@@ -16,12 +37,7 @@ def extract_text(input_path: Path) -> str:
     if suffix == ".txt":
         return input_path.read_text(encoding="utf-8")
     elif suffix in IMAGE_EXTS:
-        print(f"  Nhận dạng chữ từ ảnh (tesseract)...")
-        result = subprocess.run(
-            ["tesseract", str(input_path), "stdout", "-l", "vie+eng", "--psm", "3"],
-            capture_output=True, text=True, encoding="utf-8"
-        )
-        text = result.stdout
+        text = ocr_image(input_path)
         if not text or not text.strip():
             raise ValueError(
                 f"Không nhận dạng được chữ từ ảnh '{input_path.name}'. "
@@ -185,11 +201,7 @@ def convert_multi_images(image_files: list, output_stem: str, output_dir: str = 
     texts = []
     for p in resolved:
         print(f"  OCR ảnh: {p.name}")
-        result = subprocess.run(
-            ["tesseract", str(p), "stdout", "-l", "vie+eng", "--psm", "3"],
-            capture_output=True, text=True, encoding="utf-8"
-        )
-        t = result.stdout.strip()
+        t = ocr_image(p).strip()
         if t:
             texts.append(t)
         else:
