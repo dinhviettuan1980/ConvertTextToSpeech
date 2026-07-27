@@ -87,6 +87,19 @@ async def obituary_endpoint(file: UploadFile = File(..., description="Ảnh cáo
         raise HTTPException(status_code=500, detail=f"Obituary lỗi: {e}")
 
 
+@app.post("/scan")
+async def scan_endpoint(file: UploadFile = File(..., description="Ảnh bất kỳ: cáo phó, biển số xe, giấy tờ, hoặc ảnh người/vật/cây...")):
+    """Tự nhận diện loại ảnh rồi trích số phù hợp (OCR thật hoặc đếm đối tượng để gợi ý số)."""
+    data = await file.read()
+    if not data:
+        raise HTTPException(status_code=400, detail="File rỗng")
+    try:
+        from .scan import analyze_image
+        return analyze_image(data)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Scan lỗi: {e}")
+
+
 @app.post("/prescription")
 async def prescription_endpoint(file: UploadFile = File(..., description="Ảnh đơn thuốc")):
     """Trích đơn thuốc -> { meds:[{name,dose,quantity,unit,category}], patient_name, diagnosis, ... }."""

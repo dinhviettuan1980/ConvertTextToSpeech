@@ -46,7 +46,17 @@ def main():
         shutil.copy(OCR_DIR / f, stage / "ocr" / f)
 
     print(f"→ tạo Space {repo_id} (docker)...")
-    api.create_repo(repo_id=repo_id, repo_type="space", space_sdk="docker", exist_ok=True)
+    try:
+        api.create_repo(repo_id=repo_id, repo_type="space", space_sdk="docker", exist_ok=True)
+    except Exception as e:
+        # Tài khoản free: HF trả 402 Payment Required cho MỌI lần gọi create_repo (kể cả khi
+        # exist_ok=True và Space đã tồn tại) vì docker/gradio SDK yêu cầu PRO để TẠO MỚI.
+        # Nếu Space đã tồn tại thật thì bỏ qua lỗi này và tiếp tục upload (không cần tạo lại).
+        if getattr(getattr(e, "response", None), "status_code", None) == 402:
+            api.repo_info(repo_id=repo_id, repo_type="space")  # raise nếu Space chưa tồn tại
+            print("  (402 do tài khoản free — Space đã tồn tại nên bỏ qua, tiếp tục upload)")
+        else:
+            raise
 
     # Cấu hình engine + key. OCR_ENGINE mặc định groq; GROQ_API_KEY lấy từ ENV (đặt làm secret).
     engine = os.getenv("OCR_ENGINE", "groq")
