@@ -1,5 +1,5 @@
 """
-Trích ĐƠN THUỐC và CHỈ SỐ XÉT NGHIỆM từ ảnh bằng Groq vision (đọc cả chữ viết tay).
+Trích ĐƠN THUỐC và CHỈ SỐ XÉT NGHIỆM từ ảnh bằng Gemini vision (đọc cả chữ viết tay).
 Dùng cho app connectdoctor: /prescription (thuốc) và /labtest (chỉ số).
 KHÔNG bịa — thiếu thì để rỗng / mảng rỗng.
 """
@@ -8,7 +8,7 @@ from __future__ import annotations
 import re
 import json
 
-from .groq_engine import vision_complete
+from .gemini_engine import vision_complete
 
 
 def _parse_json(s: str) -> dict:

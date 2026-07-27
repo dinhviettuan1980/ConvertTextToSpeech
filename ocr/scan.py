@@ -1,7 +1,7 @@
 """
 Nhận diện TỔNG QUÁT 1 ảnh bất kỳ rồi trích/suy số phù hợp -> JSON chuẩn.
 
-Không còn giới hạn "chỉ cáo phó": 1 lần gọi Groq vừa PHÂN LOẠI ảnh (cáo phó / biển số xe /
+Không còn giới hạn "chỉ cáo phó": 1 lần gọi Gemini vừa PHÂN LOẠI ảnh (cáo phó / biển số xe /
 văn bản có số / cảnh vật không chữ số) vừa trích luôn thông tin theo loại đó (tiết kiệm gọi —
 chỉ cáo phó mới cần chống ảo giác nghiêm ngặt bằng nhiều lần gọi, xem obituary.py).
 
@@ -19,7 +19,7 @@ import re
 import json
 from dataclasses import asdict
 
-from .groq_engine import vision_complete
+from .gemini_engine import vision_complete
 from .base import OCRResult
 from .parser import extract_numbers
 from . import obituary as obituary_mod

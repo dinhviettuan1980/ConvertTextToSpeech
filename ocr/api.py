@@ -76,7 +76,7 @@ async def ocr_endpoint(file: UploadFile = File(..., description="Ảnh cần OCR
 
 @app.post("/obituary")
 async def obituary_endpoint(file: UploadFile = File(..., description="Ảnh cáo phó")):
-    """Trích thông tin cáo phó + số dự đoán (cần OCR_ENGINE=groq để dùng vision)."""
+    """Trích thông tin cáo phó + số dự đoán (cần OCR_ENGINE=gemini để dùng vision)."""
     data = await file.read()
     if not data:
         raise HTTPException(status_code=400, detail="File rỗng")

@@ -1,7 +1,7 @@
 """
 Ghép/chuẩn hoá địa chỉ tổ chức tang lễ.
 
-AI (Groq) đã tìm và ghép địa chỉ trong ảnh (trường `address`). Module này:
+AI (Gemini) đã tìm và ghép địa chỉ trong ảnh (trường `address`). Module này:
   - clean(): chuẩn hoá khoảng trắng/dấu phẩy của chuỗi địa chỉ.
   - compose(): ghép từ các phần rời (nếu sau này AI trả parts) — chỉ nối phần CÓ,
     KHÔNG suy diễn phần thiếu.

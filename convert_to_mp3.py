@@ -7,23 +7,23 @@ from gtts import gTTS
 from gtts.tts import gTTSError
 from docx import Document
 
-from ocr.groq_engine import ocr_full_text
+from ocr.gemini_engine import ocr_full_text
 
 
 IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".webp", ".bmp", ".tiff", ".tif"}
 
 
 def ocr_image(input_path: Path) -> str:
-    """Groq vision trước (đồng nhất với /obituary, /ocr...); lỗi/thiếu GROQ_API_KEY thì
+    """Gemini vision trước (đồng nhất với /obituary, /ocr...); lỗi/thiếu GEMINI_API_KEY thì
     fallback về tesseract (chất lượng kém hơn với chữ viết tay nhưng không phụ thuộc mạng)."""
     try:
-        print(f"  Nhận dạng chữ từ ảnh (Groq vision)...")
+        print(f"  Nhận dạng chữ từ ảnh (Gemini vision)...")
         text = ocr_full_text(input_path.read_bytes())
         if text.strip():
             return text
-        print(f"  [Groq trả rỗng] fallback tesseract...")
+        print(f"  [Gemini trả rỗng] fallback tesseract...")
     except Exception as e:
-        print(f"  [Groq lỗi: {e}] fallback tesseract...")
+        print(f"  [Gemini lỗi: {e}] fallback tesseract...")
 
     result = subprocess.run(
         ["tesseract", str(input_path), "stdout", "-l", "vie+eng", "--psm", "3"],

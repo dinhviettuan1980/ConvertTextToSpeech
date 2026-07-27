@@ -1,7 +1,7 @@
 """
 Sinh đoạn văn đọc cáo phó (tự nhiên, không robot).
 
-Mặc định AI (Groq) đã trả `speech_text` tự nhiên (số đọc thành chữ). Module này là
+Mặc định AI (Gemini) đã trả `speech_text` tự nhiên (số đọc thành chữ). Module này là
 FALLBACK khi thiếu speech_text: ghép một đoạn ngắn từ các trường đã nhận diện.
 Không bịa — trường nào trống thì bỏ qua.
 """

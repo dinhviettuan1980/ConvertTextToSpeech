@@ -1,7 +1,7 @@
 """
-Trích thông tin CÁO PHÓ từ ảnh bằng Groq vision -> JSON chuẩn (spec).
+Trích thông tin CÁO PHÓ từ ảnh bằng Gemini vision -> JSON chuẩn (spec).
 
-1 lần gọi Groq trả về các trường + full_text + speech_text. Sau đó:
+1 lần gọi Gemini trả về các trường + full_text + speech_text. Sau đó:
   - address  -> map_service.maps_url
   - full_text -> parser.extract_numbers  -> lottery_numbers (giữ logic số hiện tại)
   - speech_text rỗng -> speech_generator (fallback)
@@ -10,7 +10,7 @@ KHÔNG bịa: trường thiếu để chuỗi rỗng.
 
 Chống ảo giác (model đôi khi bịa nguyên 1 bộ dữ liệu KHÁC hoàn toàn, tự nhất quán —
 so full_text với chính data trong CÙNG 1 lần gọi không phát hiện được vì cả 2 đều do
-model bịa ra cùng lúc): gọi Groq 2 LẦN ĐỘC LẬP trên cùng ảnh, so sánh birth_year +
+model bịa ra cùng lúc): gọi Gemini 2 LẦN ĐỘC LẬP trên cùng ảnh, so sánh birth_year +
 person_name. Khớp nhau -> tin dùng. Lệch nhau -> gọi lần 3, lấy kết quả đa số (2/3);
 nếu cả 3 lần đều khác nhau thì trả kết quả lần cuối kèm cờ `low_confidence: true`
 để FE có thể cảnh báo thay vì hiển thị y như chắc chắn đúng.
@@ -21,7 +21,7 @@ import re
 import json
 from dataclasses import asdict
 
-from .groq_engine import vision_complete
+from .gemini_engine import vision_complete
 from .base import OCRResult
 from .parser import extract_numbers
 from . import address_parser, map_service, speech_generator
